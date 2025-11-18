@@ -1,142 +1,145 @@
-# ----------------------------------------------------------------
-# configtx.yaml - The "Constitution" for the HEC/University Network
-# This file translates the network diagram  into a
-# set of rules for the Fabric network.
-# ----------------------------------------------------------------
+---
+################################################################################
+#   CONFIGTX FILE FOR HEC UNIVERSITY NETWORK - FINAL WORKING VERSION
+################################################################################
+
 Organizations:
 
-  # ------------------------------------------------
-  # HEC (Orderer Organization)
-  # This matches the `HEC (Orderer Organization)` (green box)
-  # in your diagram.
-  # ------------------------------------------------
-  - &HEC
-    Name: HEC
-    ID: HECMSP
-    # This points to the "ID card" (MSP) for the HEC organization
-    # that our registerEnroll.sh script created.
-    MSPDir:./organizations/ordererOrganizations/hec.fyp.com/msp
+  - &HecOrdererOrg
+      Name: HecOrderer
+      ID: HecOrdererMSP
+      MSPDir: organizations/ordererOrganizations/hec.fyp.com/msp
 
-  # ------------------------------------------------
-  # University (Peer Organization)
-  # This matches the `University (Peer Organization)` (blue box)
-  # in your diagram.
-  # ------------------------------------------------
-  - &University
-    Name: University
-    ID: UniversityMSP
-    # This points to the "ID card" (MSP) for the University organization
-    # that our registerEnroll.sh script created.
-    MSPDir:./organizations/peerOrganizations/university.fyp.com/msp
-    # Define "anchor peers" (Peer 1). This allows peers from
-    # different orgs to discover each other.
-    AnchorPeers:
-      - Host: university-peer1.university.fyp.com
-        Port: 7051
+      Policies:
+        Readers:
+          Type: Signature
+          Rule: "OR('HecOrdererMSP.member')"
+        Writers:
+          Type: Signature
+          Rule: "OR('HecOrdererMSP.member')"
+        Admins:
+          Type: Signature
+          Rule: "OR('HecOrdererMSP.admin')"
 
-# ------------------------------------------------
-# DEFAULT SETTINGS
-# ------------------------------------------------
-Capabilities:
-  Channel: &ChannelCapabilities
-    V2_0: true
-  Orderer: &OrdererCapabilities
-    V2_0: true
-  Application: &ApplicationCapabilities
-    V2_0: true
+      OrdererEndpoints:
+        - hec-orderer.hec.fyp.com:7050
 
-Application: &ApplicationDefaults
-  Organizations:
-  Policies:
-    Readers:
-      Type: ImplicitMeta
-      Rule: "ANY Readers"
-    Writers:
-      Type: ImplicitMeta
-      Rule: "ANY Writers"
-    Admins:
-      Type: ImplicitMeta
-      Rule: "MAJORITY Admins"
-    LifecycleEndorsement:
-      Type: ImplicitMeta
-      Rule: "MAJORITY Endorsement"
-    Endorsement:
-      Type: ImplicitMeta
-      Rule: "MAJORITY Endorsement"
+  - &HecUniversityOrg
+      Name: HecUniversity
+      ID: HecUniversityMSP
+      MSPDir: organizations/peerOrganizations/hecuni.fyp.com/msp
+
+      Policies:
+        Readers:
+          Type: Signature
+          Rule: "OR('HecUniversityMSP.admin', 'HecUniversityMSP.peer', 'HecUniversityMSP.client')"
+        Writers:
+          Type: Signature
+          Rule: "OR('HecUniversityMSP.admin', 'HecUniversityMSP.client')"
+        Admins:
+          Type: Signature
+          Rule: "OR('HecUniversityMSP.admin')"
+
+      AnchorPeers:
+        - Host: peer0.hecuni.fyp.com
+          Port: 7051
+
+################################################################################
+# ORDERER SECTION
+################################################################################
 
 Orderer: &OrdererDefaults
+
   OrdererType: etcdraft
-  # This section points to the HEC_Orderer node 
+
+  Addresses:
+    - hec-orderer.hec.fyp.com:7050
+
   EtcdRaft:
     Consenters:
-      # This hostname MUST match the Common Name we will give
-      # the orderer in the docker-compose file.
       - Host: hec-orderer.hec.fyp.com
         Port: 7050
-        # These point to the TLS certs we generated in registerEnroll.sh
-        ClientTLSCert:./organizations/ordererOrganizations/hec.fyp.com/orderers/hec-orderer.hec.fyp.com/tls/server.crt
-        ServerTLSCert:./organizations/ordererOrganizations/hec.fyp.com/orderers/hec-orderer.hec.fyp.com/tls/server.crt
+        ClientTLSCert: organizations/ordererOrganizations/hec.fyp.com/orderers/hec-orderer.hec.fyp.com/tls/signcerts/cert.pem
+        ServerTLSCert: organizations/ordererOrganizations/hec.fyp.com/orderers/hec-orderer.hec.fyp.com/tls/signcerts/cert.pem
+
   BatchTimeout: 2s
+
   BatchSize:
     MaxMessageCount: 10
     AbsoluteMaxBytes: 99 MB
     PreferredMaxBytes: 512 KB
-  Organizations:
+
   Policies:
     Readers:
-      Type: ImplicitMeta
-      Rule: "ANY Readers"
+      Type: Signature
+      Rule: "OR('HecOrdererMSP.member')"
     Writers:
-      Type: ImplicitMeta
-      Rule: "ANY Writers"
+      Type: Signature
+      Rule: "OR('HecOrdererMSP.member')"
     Admins:
-      Type: ImplicitMeta
-      Rule: "MAJORITY Admins"
-    BlockValidation:
-      Type: ImplicitMeta
-      Rule: "ANY Writers"
+      Type: Signature
+      Rule: "OR('HecOrdererMSP.admin')"
 
-# ------------------------------------------------
-# CHANNEL PROFILES (The "Templates")
-# ------------------------------------------------
+  Capabilities:
+    Orderer: V2_0
+
+################################################################################
+# CHANNEL CONFIG DEFAULTS
+################################################################################
+
+Channel: &ChannelDefaults
+  Policies:
+    Readers:
+      Type: Signature
+      Rule: "OR('HecOrdererMSP.admin', 'HecUniversityMSP.admin')"
+    Writers:
+      Type: Signature
+      Rule: "OR('HecOrdererMSP.admin', 'HecUniversityMSP.admin')"
+    Admins:
+      Type: Signature
+      Rule: "OR('HecOrdererMSP.admin', 'HecUniversityMSP.admin')"
+
+  Capabilities:
+    Channel: V2_0
+
+################################################################################
+# PROFILES
+################################################################################
+
 Profiles:
 
-  # 1. The "Genesis" Profile for the HEC System Channel
+  # Genesis block profile
   HecUniversityGenesis:
-    <<: *OrdererDefaults
-    Orderer:
-      <<: *OrdererDefaults
-      # This points to our HEC organization defined above
-      Organizations:
-        - *HEC
-      Capabilities:
-        <<: *OrdererCapabilities
-    Application:
-      <<: *ApplicationDefaults
-      Organizations: # No peers in the system channel
-      Capabilities:
-        <<: *ApplicationCapabilities
-    # This defines the "Consortium" or group of members
-    Consortiums:
-      UniversityConsortium:
-        Organizations:
-          # The University is the first member of our consortium
-          - *University
+    <<: *ChannelDefaults
 
-  # 2. The "Application Channel" Profile (for 'mychannel')
-  HecUniversityChannel:
-    <<: *ApplicationDefaults
     Orderer:
       <<: *OrdererDefaults
-      # This channel is run by the HEC Orderer
       Organizations:
-        - *HEC
-      Capabilities:
-        <<: *OrdererCapabilities
+        - *HecOrdererOrg
+
+    Consortiums:
+      HecConsortium:
+        Organizations:
+          - *HecUniversityOrg
+
+  # Application channel profile
+  HecUniversityChannel:
+    Consortium: HecConsortium
+
     Application:
-      <<: *ApplicationDefaults
-      # This channel has one member: The University
       Organizations:
-        - *University
+        - *HecUniversityOrg
+
+      Policies:
+        Readers:
+          Type: Signature
+          Rule: "OR('HecUniversityMSP.admin', 'HecUniversityMSP.client', 'HecUniversityMSP.peer')"
+        Writers:
+          Type: Signature
+          Rule: "OR('HecUniversityMSP.admin', 'HecUniversityMSP.client')"
+        Admins:
+          Type: Signature
+          Rule: "OR('HecUniversityMSP.admin')"
+
       Capabilities:
-        <<: *ApplicationCapabilities
+        Application: V2_0
