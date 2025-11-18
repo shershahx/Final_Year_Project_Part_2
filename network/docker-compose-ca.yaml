@@ -1,1 +1,80 @@
+version: '3.7'
 
+# Define the custom Docker network so all containers can communicate
+networks:
+  fabric-network:
+    name: fabric-network
+
+services:
+
+  # ------------------------------------------------
+  # 1. HEC (Orderer) Certificate Authority
+  # ------------------------------------------------
+  ca-hec:
+    image: hyperledger/fabric-ca:latest
+    container_name: ca-hec
+    environment:
+      # --- Server Config ---
+      - FABRIC_CA_SERVER_CA_NAME=ca-hec
+      - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+      - FABRIC_CA_SERVER_PORT=7054
+      - FABRIC_CA_SERVER_TLS_ENABLED=true
+      # --- Bootstrap Admin ---
+      - FABRIC_CA_SERVER_ADMIN_USER=hec-admin
+      - FABRIC_CA_SERVER_ADMIN_PASSWORD=hec-adminpw
+    ports:
+      - "7054:7054"
+    command: sh -c 'fabric-ca-server start -b hec-admin:hec-adminpw'
+    volumes:
+      # This saves all the CA's data (keys, certs) to your local machine
+      - ./organizations/fabric-ca-server/hec:/etc/hyperledger/fabric-ca-server
+    networks:
+      - fabric-network
+
+  # ------------------------------------------------
+  # 2. University (Peer) Certificate Authority
+  # ------------------------------------------------
+  ca-university:
+    image: hyperledger/fabric-ca:latest
+    container_name: ca-university
+    environment:
+      # --- Server Config ---
+      - FABRIC_CA_SERVER_CA_NAME=ca-university
+      - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+      - FABRIC_CA_SERVER_PORT=7054
+      - FABRIC_CA_SERVER_TLS_ENABLED=true
+      # --- Bootstrap Admin ---
+      - FABRIC_CA_SERVER_ADMIN_USER=university-admin
+      - FABRIC_CA_SERVER_ADMIN_PASSWORD=university-adminpw
+    ports:
+      - "8054:7054"
+    command: sh -c 'fabric-ca-server start -b university-admin:university-adminpw'
+    volumes:
+      # This saves the University CA's data
+      - ./organizations/fabric-ca-server/university:/etc/hyperledger/fabric-ca-server
+    networks:
+      - fabric-network
+
+  # ------------------------------------------------
+  # 3. Global TLS Certificate Authority
+  # ------------------------------------------------
+  ca-tls:
+    image: hyperledger/fabric-ca:latest
+    container_name: ca-tls
+    environment:
+      # --- Server Config ---
+      - FABRIC_CA_SERVER_CA_NAME=ca-tls
+      - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+      - FABRIC_CA_SERVER_PORT=7054
+      - FABRIC_CA_SERVER_TLS_ENABLED=true
+      # --- Bootstrap Admin ---
+      - FABRIC_CA_SERVER_ADMIN_USER=tls-admin
+      - FABRIC_CA_SERVER_ADMIN_PASSWORD=tls-adminpw
+    ports:
+      - "9054:7054"
+    command: sh -c 'fabric-ca-server start -b tls-admin:tls-adminpw'
+    volumes:
+      # This saves the TLS CA's data
+      - ./organizations/fabric-ca-server/tls:/etc/hyperledger/fabric-ca-server
+    networks:
+      - fabric-network
