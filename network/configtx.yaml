@@ -1,0 +1,142 @@
+# ----------------------------------------------------------------
+# configtx.yaml - The "Constitution" for the HEC/University Network
+# This file translates the network diagram  into a
+# set of rules for the Fabric network.
+# ----------------------------------------------------------------
+Organizations:
+
+  # ------------------------------------------------
+  # HEC (Orderer Organization)
+  # This matches the `HEC (Orderer Organization)` (green box)
+  # in your diagram.
+  # ------------------------------------------------
+  - &HEC
+    Name: HEC
+    ID: HECMSP
+    # This points to the "ID card" (MSP) for the HEC organization
+    # that our registerEnroll.sh script created.
+    MSPDir:./organizations/ordererOrganizations/hec.fyp.com/msp
+
+  # ------------------------------------------------
+  # University (Peer Organization)
+  # This matches the `University (Peer Organization)` (blue box)
+  # in your diagram.
+  # ------------------------------------------------
+  - &University
+    Name: University
+    ID: UniversityMSP
+    # This points to the "ID card" (MSP) for the University organization
+    # that our registerEnroll.sh script created.
+    MSPDir:./organizations/peerOrganizations/university.fyp.com/msp
+    # Define "anchor peers" (Peer 1). This allows peers from
+    # different orgs to discover each other.
+    AnchorPeers:
+      - Host: university-peer1.university.fyp.com
+        Port: 7051
+
+# ------------------------------------------------
+# DEFAULT SETTINGS
+# ------------------------------------------------
+Capabilities:
+  Channel: &ChannelCapabilities
+    V2_0: true
+  Orderer: &OrdererCapabilities
+    V2_0: true
+  Application: &ApplicationCapabilities
+    V2_0: true
+
+Application: &ApplicationDefaults
+  Organizations:
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Admins"
+    LifecycleEndorsement:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Endorsement"
+    Endorsement:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Endorsement"
+
+Orderer: &OrdererDefaults
+  OrdererType: etcdraft
+  # This section points to the HEC_Orderer node 
+  EtcdRaft:
+    Consenters:
+      # This hostname MUST match the Common Name we will give
+      # the orderer in the docker-compose file.
+      - Host: hec-orderer.hec.fyp.com
+        Port: 7050
+        # These point to the TLS certs we generated in registerEnroll.sh
+        ClientTLSCert:./organizations/ordererOrganizations/hec.fyp.com/orderers/hec-orderer.hec.fyp.com/tls/server.crt
+        ServerTLSCert:./organizations/ordererOrganizations/hec.fyp.com/orderers/hec-orderer.hec.fyp.com/tls/server.crt
+  BatchTimeout: 2s
+  BatchSize:
+    MaxMessageCount: 10
+    AbsoluteMaxBytes: 99 MB
+    PreferredMaxBytes: 512 KB
+  Organizations:
+  Policies:
+    Readers:
+      Type: ImplicitMeta
+      Rule: "ANY Readers"
+    Writers:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+    Admins:
+      Type: ImplicitMeta
+      Rule: "MAJORITY Admins"
+    BlockValidation:
+      Type: ImplicitMeta
+      Rule: "ANY Writers"
+
+# ------------------------------------------------
+# CHANNEL PROFILES (The "Templates")
+# ------------------------------------------------
+Profiles:
+
+  # 1. The "Genesis" Profile for the HEC System Channel
+  HecUniversityGenesis:
+    <<: *OrdererDefaults
+    Orderer:
+      <<: *OrdererDefaults
+      # This points to our HEC organization defined above
+      Organizations:
+        - *HEC
+      Capabilities:
+        <<: *OrdererCapabilities
+    Application:
+      <<: *ApplicationDefaults
+      Organizations: # No peers in the system channel
+      Capabilities:
+        <<: *ApplicationCapabilities
+    # This defines the "Consortium" or group of members
+    Consortiums:
+      UniversityConsortium:
+        Organizations:
+          # The University is the first member of our consortium
+          - *University
+
+  # 2. The "Application Channel" Profile (for 'mychannel')
+  HecUniversityChannel:
+    <<: *ApplicationDefaults
+    Orderer:
+      <<: *OrdererDefaults
+      # This channel is run by the HEC Orderer
+      Organizations:
+        - *HEC
+      Capabilities:
+        <<: *OrdererCapabilities
+    Application:
+      <<: *ApplicationDefaults
+      # This channel has one member: The University
+      Organizations:
+        - *University
+      Capabilities:
+        <<: *ApplicationCapabilities
