@@ -1,30 +1,23 @@
-
 #!/bin/bash
 
 # This script generates all the identities for your network based on your diagram 
-# This version is robust and fixes all previous authentication errors.
+# This version (v4) fixes the TLS CA Authentication Failure error.
 
 # ---
 # 1. SET UP THE ENVIRONMENT
 # ---
 export FABRIC_SAMPLES_DIR="/home/shershah/hyperledger/fabric-samples"
 export PATH="${FABRIC_SAMPLES_DIR}/bin:$PATH"
-
-# This is the *default* client home, but we will override it
-# for each admin enrollment to prevent them from overwriting each other.
 export FABRIC_CA_CLIENT_HOME=${PWD}/organizations
 
 # ---
 # 2. DEFINE ADMIN MSP DIRECTORIES
 # ---
-# We will store each CA Admin's identity in a *separate* directory.
-# This is the fix that solves the "Authentication failure" errors.
-
 export HEC_CA_ADMIN_DIR=${PWD}/organizations/hec-ca-admin
 export UNI_CA_ADMIN_DIR=${PWD}/organizations/university-ca-admin
 export TLS_CA_ADMIN_DIR=${PWD}/organizations/tls-ca-admin
 
-echo "--- Starting Identity Generation (v3) ---"
+echo "--- Starting Identity Generation (v4) ---"
 
 # ---
 # 3. ENROLL ALL CA ADMINS (Into their unique directories)
@@ -41,7 +34,7 @@ fabric-ca-client enroll -u https://tls-admin:tls-adminpw@localhost:9054 --caname
 echo "--- All CA Admins Enrolled. Now registering nodes and users. ---"
 
 # ---
-# 4. REGISTER HEC COMPONENTS (Using HEC Admin Identity)
+# 4. REGISTER HEC COMPONENTS (with HEC CA)
 # ---
 echo "Registering HEC Orderer..."
 fabric-ca-client register --caname ca-hec --id.name hec-orderer --id.secret ordererpw --id.type orderer \
@@ -54,7 +47,7 @@ fabric-ca-client register --caname ca-hec --id.name hec-admin-user --id.secret a
   --mspdir $HEC_CA_ADMIN_DIR
 
 # ---
-# 5. REGISTER UNIVERSITY COMPONENTS (Using University Admin Identity)
+# 5. REGISTER UNIVERSITY COMPONENTS (with University CA)
 # ---
 echo "Registering University Peer 1..."
 fabric-ca-client register --caname ca-university --id.name university-peer1 --id.secret peer1pw --id.type peer \
@@ -71,10 +64,29 @@ fabric-ca-client register --caname ca-university --id.name university-admin-user
   -u https://localhost:8054 --tls.certfiles ${PWD}/organizations/fabric-ca-server/university/ca-cert.pem \
   --mspdir $UNI_CA_ADMIN_DIR
 
+# ---
+# 6. *** NEW STEP: REGISTER ALL NODES WITH TLS CA (Using TLS Admin) ***
+# ---
+# This is the step I missed. We must register the nodes with the
+# TLS CA before we can enroll them for a TLS cert.
+
+echo "--- Registering nodes with TLS CA ---"
+fabric-ca-client register --caname ca-tls --id.name hec-orderer --id.secret ordererpw --id.type orderer \
+  -u https://localhost:9054 --tls.certfiles ${PWD}/organizations/fabric-ca-server/tls/ca-cert.pem \
+  --mspdir $TLS_CA_ADMIN_DIR
+
+fabric-ca-client register --caname ca-tls --id.name university-peer1 --id.secret peer1pw --id.type peer \
+  -u https://localhost:9054 --tls.certfiles ${PWD}/organizations/fabric-ca-server/tls/ca-cert.pem \
+  --mspdir $TLS_CA_ADMIN_DIR
+
+fabric-ca-client register --caname ca-tls --id.name university-peer2 --id.secret peer2pw --id.type peer \
+  -u https://localhost:9054 --tls.certfiles ${PWD}/organizations/fabric-ca-server/tls/ca-cert.pem \
+  --mspdir $TLS_CA_ADMIN_DIR
+
 echo "--- All identities registered. Now generating MSP and TLS crypto. ---"
 
 # ---
-# 6. GENERATE HEC MSP & TLS CERTIFICATES
+# 7. GENERATE HEC MSP & TLS CERTIFICATES
 # ---
 echo "Generating HEC Orderer MSP..."
 fabric-ca-client enroll -u https://hec-orderer:ordererpw@localhost:7054 --caname ca-hec \
@@ -93,7 +105,7 @@ fabric-ca-client enroll -u https://hec-admin-user:adminpw@localhost:7054 --canam
   --tls.certfiles ${PWD}/organizations/fabric-ca-server/hec/ca-cert.pem
 
 # ---
-# 7. GENERATE UNIVERSITY MSP & TLS CERTIFICATES
+# 8. GENERATE UNIVERSITY MSP & TLS CERTIFICATES
 # ---
 echo "Generating University Peer 1 MSP..."
 fabric-ca-client enroll -u https://university-peer1:peer1pw@localhost:8054 --caname ca-university \
@@ -121,6 +133,5 @@ echo "Generating University Admin User MSP..."
 fabric-ca-client enroll -u https://university-admin-user:adminpw@localhost:8054 --caname ca-university \
   -M ${PWD}/organizations/peerOrganizations/university.fyp.com/users/Admin@university.fyp.com/msp \
   --tls.certfiles ${PWD}/organizations/fabric-ca-server/university/ca-cert.pem
-
 
 echo "--- All identities and certificates generated successfully. ---"
