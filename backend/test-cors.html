@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script>
+    fetch("http://localhost:5000/api/degrees/hec/DEG_WORKFLOW_1776316714381_1uu26g/pdf?token=abc")
+        .then(res => res.blob())
+        .then(blob => console.log("Blob size:", blob.size))
+        .catch(err => console.error(err.message));
+</script>
+</body>
+</html>
