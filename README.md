@@ -72,6 +72,102 @@ All degree records are immutable, timestamped, and transparently auditable.
   └───────────┘   └────────────┘   └──────────────────────────┘
 ```
 
+### Decentralized Document Verification Architecture (Flutter + Fabric)
+
+- **Flutter mobile app (iOS/Android)**: Uploads and verifies documents, signs requests with OAuth/JWT, and talks to the API only over TLS.
+- **API gateway / Node.js backend**: Validates tokens, scans files, hashes documents, and serves a Fabric SDK gateway for chaincode calls. Issues short-lived session tokens.
+- **Hyperledger Fabric network**: Peers run chaincode that records and verifies document hashes. Orderers provide consensus. All traffic from the backend uses mTLS identities issued by the Fabric CA.
+- **CouchDB state database**: Stores world state and metadata alongside the ledger for quick lookups; kept in sync by Fabric peers.
+- **Artifact storage (optional IPFS/S3)**: Raw documents can be stored off-chain; only hashes and metadata are persisted on-chain.
+- **Observability and audit logs**: API emits immutable audit events (API gateway, chaincode events) for compliance and traceability.
+
+#### Draw.io (mxGraphModel)
+
+```xml
+<mxGraphModel dx="1280" dy="720" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+    <mxCell id="user" value="End User" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf" vertex="1" parent="1">
+      <mxGeometry x="40" y="180" width="100" height="50" as="geometry" />
+    </mxCell>
+    <mxCell id="app" value="Flutter\nMobile App" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+      <mxGeometry x="180" y="170" width="130" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="api" value="API Gateway /\nNode.js Backend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366" vertex="1" parent="1">
+      <mxGeometry x="360" y="170" width="150" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="gateway" value="Fabric SDK\nGateway" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656" vertex="1" parent="1">
+      <mxGeometry x="550" y="170" width="130" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="peer" value="Fabric Peer\n+ Chaincode" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450" vertex="1" parent="1">
+      <mxGeometry x="730" y="140" width="150" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="orderer" value="Fabric Orderer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666" vertex="1" parent="1">
+      <mxGeometry x="730" y="230" width="150" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="couch" value="CouchDB State DB" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#dae8fc;strokeColor=#6c8ebf" vertex="1" parent="1">
+      <mxGeometry x="930" y="160" width="120" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="ca" value="Fabric CA" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#cdeb8b;strokeColor=#9caf6a" vertex="1" parent="1">
+      <mxGeometry x="550" y="270" width="130" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="storage" value="Off-chain Storage\n(IPFS/S3)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1">
+      <mxGeometry x="360" y="270" width="150" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="audit" value="Audit / Logs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666" vertex="1" parent="1">
+      <mxGeometry x="930" y="270" width="120" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="e1" style="endArrow=block;html=1;strokeColor=#6c8ebf" edge="1" parent="1" source="user" target="app">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e2" style="endArrow=block;html=1;strokeColor=#82b366" edge="1" parent="1" source="app" target="api">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e3" style="endArrow=block;html=1;strokeColor=#d6b656" edge="1" parent="1" source="api" target="gateway">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e4" style="endArrow=block;html=1;strokeColor=#b85450" edge="1" parent="1" source="gateway" target="peer">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e5" style="endArrow=block;html=1;dashed=1;strokeColor=#666666" edge="1" parent="1" source="peer" target="orderer">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e6" style="endArrow=block;html=1;strokeColor=#6c8ebf" edge="1" parent="1" source="peer" target="couch">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e7" style="endArrow=block;html=1;dashed=1;strokeColor=#82b366" edge="1" parent="1" source="api" target="storage">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e8" style="endArrow=block;html=1;dashed=1;strokeColor=#9caf6a" edge="1" parent="1" source="api" target="ca">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e9" style="endArrow=block;html=1;dashed=1;strokeColor=#666666" edge="1" parent="1" source="api" target="audit">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e10" style="endArrow=block;html=1;dashed=1;strokeColor=#666666" edge="1" parent="1" source="peer" target="audit">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+  </root>
+</mxGraphModel>
+```
+
+#### Mermaid.js (fallback)
+
+```mermaid
+graph TD
+  user((End User)) --> app[Flutter Mobile App]
+  app --> api[API Gateway / Node.js Backend]
+  api --> gateway[Fabric SDK Gateway]
+  gateway --> peer[Fabric Peer + Chaincode]
+  peer --> orderer[Fabric Orderer]
+  peer --> couch[(CouchDB State DB)]
+  api -. off-chain .-> storage[Off-chain Storage (IPFS/S3)]
+  api -. enroll .-> ca[Fabric CA]
+  api -. audit .-> audit[Audit / Logs]
+  peer -. events .-> audit
+```
+
 ---
 
 ## Tech Stack
